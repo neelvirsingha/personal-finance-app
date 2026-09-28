@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Personal Finance</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f7fb;color:#111827}
+header{background:#111827;color:#fff;padding:22px 18px 28px;border-radius:0 0 24px 24px}
+h1{font-size:25px;margin:3px 0 16px}.label{font-size:12px;opacity:.72;text-transform:uppercase;letter-spacing:.08em}.big{font-size:32px;font-weight:750}
+main{padding:16px 16px 100px;max-width:720px;margin:auto}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:17px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px #0000000d}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{padding:15px;background:#fff;border:1px solid #e5e7eb;border-radius:14px}.metric b{display:block;font-size:20px;margin-top:5px}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #eee}.row:last-child{border-bottom:0}
+h2{font-size:19px;margin:2px 0 12px}.muted{color:#6b7280;font-size:13px}.green{color:#15803d}.red{color:#b91c1c}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e5e7eb;display:flex;justify-content:space-around;padding:9px 4px calc(9px + env(safe-area-inset-bottom));z-index:5}
+nav button{border:0;background:none;color:#6b7280;font-size:11px}.active{color:#111827!important;font-weight:700}
+.fab{position:fixed;right:18px;bottom:82px;width:56px;height:56px;border-radius:50%;border:0;background:#111827;color:#fff;font-size:29px;box-shadow:0 6px 18px #0003;z-index:6}
+.modal{position:fixed;inset:0;background:#0007;z-index:20;display:flex;align-items:flex-end}
+.modal.hidden{display:none}
+.sheet{background:#fff;width:100%;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto}
+.close{float:right;border:0;background:none;font-size:28px;line-height:1;padding:0 3px}
+.typegrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0 16px}
+.typebtn{border:1px solid #d1d5db;background:#fff;border-radius:12px;padding:12px;text-align:left;font-size:14px}
+.typebtn.selected{border:2px solid #111827;background:#f3f4f6;font-weight:700}
+label{display:block;font-size:13px;font-weight:650;margin-top:8px}
+input,select{display:block;width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:11px;font-size:16px;margin:6px 0 13px;background:#fff;color:#111827}
+.primary{width:100%;padding:14px;border:0;border-radius:12px;background:#111827;color:#fff;font-size:15px;font-weight:700}
+.secondary{padding:10px 13px;border:1px solid #d1d5db;border-radius:10px;background:#fff}
+.empty{padding:8px 0;color:#6b7280}
+</style>
+</head>
+<body>
+<header>
+  <div class="label">Personal Finance</div>
+  <h1 id="pageTitle">Home</h1>
+  <div class="label">Net Worth</div>
+  <div class="big" id="networth">₹0</div>
+</header>
+
+<main id="app"></main>
+
+<nav>
+<button onclick="show('home')" id="n-home">🏠<br>Home</button>
+<button onclick="show('money')" id="n-money">💰<br>Money</button>
+<button onclick="show('payables')" id="n-payables">📅<br>Payables</button>
+<button onclick="show('investments')" id="n-investments">📈<br>Investments</button>
+<button onclick="show('more')" id="n-more">☰<br>More</button>
+</nav>
+
+<button class="fab" onclick="openAdd()">+</button>
+
+<div id="modal" class="modal hidden">
+  <div class="sheet">
+    <button class="close" onclick="closeModal()">×</button>
+    <h2>Add Transaction</h2>
+
+    <div class="typegrid">
+      <button class="typebtn selected" id="bt-account" onclick="selectType('account')">🏦 Add Account</button>
+      <button class="typebtn" id="bt-expense" onclick="selectType('expense')">💸 Expense</button>
+      <button class="typebtn" id="bt-income" onclick="selectType('income')">💰 Salary / Income</button>
+      <button class="typebtn" id="bt-transfer" onclick="selectType('transfer')">🔄 Transfer</button>
+    </div>
+
+    <div id="formArea"></div>
+  </div>
+</div>
+
+<script>
+const KEY='pf_v1_fixed';
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||{accounts:[],tx:[]};
+let currentType='account';
+
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function money(n){return '₹'+Math.round(n||0).toLocaleString('en-IN')}
+function balance(id){
+  const a=db.accounts.find(x=>x.id===id); if(!a)return 0;
+  let b=Number(a.opening)||0;
+  db.tx.forEach(t=>{if(t.to===id)b+=Number(t.amount)||0;if(t.from===id)b-=Number(t.amount)||0});
+  return b;
+}
+function netWorth(){return db.accounts.reduce((s,a)=>s+balance(a.id),0)}
+function totals(){
+  let income=0,expense=0;
+  db.tx.forEach(t=>{if(t.type==='income')income+=Number(t.amount)||0;if(t.type==='expense')expense+=Number(t.amount)||0});
+  return {income,expense}
+}
+function show(page){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('n-'+page).classList.add('active');
+  document.getElementById('pageTitle').textContent=page.charAt(0).toUpperCase()+page.slice(1);
+  if(page==='home')home(); else if(page==='money')moneyPage(); else if(page==='payables')payables(); else if(page==='investments')investments(); else more();
+  document.getElementById('networth').textContent=money(netWorth());
+}
+function home(){
+  const t=totals();
+  document.getElementById('app').innerHTML=
+  '<div class="grid"><div class="metric"><span class="muted">Bank + Cash</span><b>'+money(netWorth())+'</b></div>'+
+  '<div class="metric"><span class="muted">Available</span><b>'+money(netWorth())+'</b></div></div>'+
+  '<div class="card"><h2>This Month</h2>'+
+  '<div class="row"><span>Income</span><b class="green">'+money(t.income)+'</b></div>'+
+  '<div class="row"><span>Expenses</span><b class="red">-'+money(t.expense)+'</b></div></div>'+
+  '<div class="card"><h2>Accounts</h2>'+
+  (db.accounts.length?db.accounts.map(a=>'<div class="row"><span>'+esc(a.name)+'<br><span class="muted">'+esc(a.institution||a.type)+'</span></span><b>'+money(balance(a.id))+'</b></div>').join(''):'<div class="empty">No accounts yet. Tap + to add your first account.</div>')+
+  '</div>';
+}
+function moneyPage(){
+  document.getElementById('app').innerHTML=
+  '<div class="card"><h2>Accounts</h2>'+
+  (db.accounts.length?db.accounts.map(a=>'<div class="row"><span>'+esc(a.name)+'</span><b>'+money(balance(a.id))+'</b></div>').join(''):'<div class="empty">Tap + to add your first bank or cash account.</div>')+
+  '</div><div class="card"><h2>Recent Transactions</h2>'+
+  (db.tx.slice().reverse().slice(0,15).map(t=>'<div class="row"><span>'+esc(t.desc||t.type)+'<br><span class="muted">'+t.date+'</span></span><b class="'+(t.type==='expense'?'red':'green')+'">'+(t.type==='expense'?'-':'+')+money(t.amount)+'</b></div>').join('')||'<div class="empty">No transactions yet.</div>')+
+  '</div>';
+}
+function payables(){document.getElementById('app').innerHTML='<div class="card"><h2>Payables</h2><div class="empty">Recurring bills and payable reserves will be added next.</div></div>'}
+function investments(){document.getElementById('app').innerHTML='<div class="card"><h2>Investments</h2><div class="empty">Mutual funds, stocks, EPF, PPF and policies will be added after the core money engine is tested.</div></div>'}
+function more(){document.getElementById('app').innerHTML='<div class="card"><h2>More</h2><div class="row"><span>Data storage</span><span>On this phone</span></div><br><button class="secondary" onclick="exportData()">Export Backup</button> <button class="secondary" onclick="resetData()">Reset</button></div>'}
+
+function openAdd(){document.getElementById('modal').classList.remove('hidden');selectType('account')}
+function closeModal(){document.getElementById('modal').classList.add('hidden')}
+function selectType(type){
+  currentType=type;
+  ['account','expense','income','transfer'].forEach(x=>document.getElementById('bt-'+x).classList.toggle('selected',x===type));
+  const aopts=db.accounts.map(a=>'<option value="'+a.id+'">'+esc(a.name)+'</option>').join('');
+  let html='';
+  if(type==='account'){
+    html='<label>Account name</label><input id="name" placeholder="HDFC Bank">'+
+    '<label>Institution</label><input id="inst" placeholder="HDFC Bank">'+
+    '<label>Opening balance</label><input id="amt" type="number" inputmode="decimal" placeholder="0">'+
+    '<button class="primary" onclick="addAccount()">Save Account</button>';
+  } else if(type==='transfer'){
+    if(db.accounts.length<2){html='<div class="empty">Please add at least two accounts before making a transfer.</div><button class="primary" onclick="selectType(\\'account\\')">Add Account</button>'}
+    else html='<label>From</label><select id="from">'+aopts+'</select>'+
+    '<label>To</label><select id="to">'+aopts+'</select>'+
+    '<label>Amount</label><input id="amt" type="number" inputmode="decimal" placeholder="0">'+
+    '<button class="primary" onclick="addTx(\\'transfer\\')">Transfer</button>';
+  } else {
+    if(!db.accounts.length){html='<div class="empty">Please add a bank/cash account first.</div><button class="primary" onclick="selectType(\\'account\\')">Add Account</button>'}
+    else html='<label>Amount</label><input id="amt" type="number" inputmode="decimal" placeholder="0">'+
+    '<label>'+(type==='expense'?'Paid From':'Received In')+'</label><select id="acct">'+aopts+'</select>'+
+    '<label>'+(type==='expense'?'Category / Description':'Income Description')+'</label><input id="desc" placeholder="'+(type==='expense'?'Grocery':'Salary')+'">'+
+    '<button class="primary" onclick="addTx(\\''+type+'\\')">Save</button>';
+  }
+  document.getElementById('formArea').innerHTML=html;
+}
+function addAccount(){
+  const name=document.getElementById('name').value.trim(); if(!name){alert('Please enter an account name.');return}
+  db.accounts.push({id:crypto.randomUUID(),name,institution:document.getElementById('inst').value.trim(),opening:Number(document.getElementById('amt').value)||0,type:'BANK'});
+  save();closeModal();show('money');
+}
+function addTx(type){
+  const amt=Number(document.getElementById('amt').value)||0;if(amt<=0){alert('Please enter an amount.');return}
+  const t={id:crypto.randomUUID(),date:new Date().toISOString().slice(0,10),type,amount:amt,desc:document.getElementById('desc')?.value.trim()||type};
+  if(type==='transfer'){t.from=document.getElementById('from').value;t.to=document.getElementById('to').value;if(t.from===t.to){alert('From and To accounts must be different.');return}}
+  else if(type==='expense')t.from=document.getElementById('acct').value;
+  else t.to=document.getElementById('acct').value;
+  db.tx.push(t);save();closeModal();show('home');
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='personal-finance-backup.json';a.click();
+}
+function resetData(){if(confirm('Delete all local finance data on this phone?')){localStorage.removeItem(KEY);location.reload()}}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+show('home');
+</script>
+</body>
+</html>
