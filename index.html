@@ -131,17 +131,17 @@ function selectType(type){
     '<label>Opening balance</label><input id="amt" type="number" inputmode="decimal" placeholder="0">'+
     '<button class="primary" onclick="addAccount()">Save Account</button>';
   } else if(type==='transfer'){
-    if(db.accounts.length<2){html='<div class="empty">Please add at least two accounts before making a transfer.</div><button class="primary" onclick="selectType(\\'account\\')">Add Account</button>'}
+    if(db.accounts.length<2){html='<div class="empty">Please add at least two accounts before making a transfer.</div><button class="primary" onclick="selectType(\'account\')">Add Account</button>'}
     else html='<label>From</label><select id="from">'+aopts+'</select>'+
     '<label>To</label><select id="to">'+aopts+'</select>'+
     '<label>Amount</label><input id="amt" type="number" inputmode="decimal" placeholder="0">'+
-    '<button class="primary" onclick="addTx(\\'transfer\\')">Transfer</button>';
+    '<button class="primary" onclick="addTx(\'transfer\')">Transfer</button>';
   } else {
-    if(!db.accounts.length){html='<div class="empty">Please add a bank/cash account first.</div><button class="primary" onclick="selectType(\\'account\\')">Add Account</button>'}
+    if(!db.accounts.length){html='<div class="empty">Please add a bank/cash account first.</div><button class="primary" onclick="selectType(\'account\')">Add Account</button>'}
     else html='<label>Amount</label><input id="amt" type="number" inputmode="decimal" placeholder="0">'+
     '<label>'+(type==='expense'?'Paid From':'Received In')+'</label><select id="acct">'+aopts+'</select>'+
     '<label>'+(type==='expense'?'Category / Description':'Income Description')+'</label><input id="desc" placeholder="'+(type==='expense'?'Grocery':'Salary')+'">'+
-    '<button class="primary" onclick="addTx(\\''+type+'\\')">Save</button>';
+    '<button class="primary" onclick="addTx(\''+type+'\')">Save</button>';
   }
   document.getElementById('formArea').innerHTML=html;
 }
